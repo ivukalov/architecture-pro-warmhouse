@@ -1,0 +1,52 @@
+@startuml Component_Diagram_ScriptManagement
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title Компонентная диаграмма сервиса управления сценариями
+
+Container(gateway, "API Gateway", "nginx", "Принимает HTTP-запросы, валидирует JWT и маршрутизирует в сервисы")
+ContainerQueue(kafka, "Брокер сообщений", "Kafka", "Асинхронная интеграционная шина")
+Container(device_management, "Сервис управления датчиками", "Go", "Регистрация датчиков, привязка к комнатам, отправка команд")
+ContainerDb(script_db, "БД управления сценариями", "Postgres", "Сценарии пользователей")
+
+Container_Boundary(script_management, "Сервис управления сценариями") {
+
+    Component(script_controller, "Контроллер сценариев", "Go", "Принимает REST-запросы от API Gateway: CRUD сценариев, запуск/остановка")
+
+    Component(script_service, "Сервис сценариев", "Go", "Создание, обновление, удаление и валидация сценариев")
+
+    Component(trigger_service, "Сервис триггеров", "Go", "Обрабатывает условия запуска сценариев: по событию, расписанию, вручную")
+
+    Component(execution_service, "Сервис выполнения сценариев", "Go", "Выполняет действия сценария: вызывает команды устройств, отправляет уведомления")
+
+    Component(event_consumer, "Консьюмер событий", "Go", "Слушает события телеметрии и устройств из Kafka для запуска сценариев")
+
+    Component(command_publisher, "Публикатор команд", "Go", "Публикует команды управления устройствам в Kafka")
+
+    Component(script_repository, "Репозиторий сценариев", "Go", "Инкапсулирует доступ к БД: CRUD для сценариев, триггеров и истории выполнения")
+}
+
+Rel(gateway, script_controller, "Запросы управления сценариями", "HTTP/JSON")
+
+Rel(script_controller, script_service, "CRUD сценариев")
+Rel(script_controller, execution_service, "Ручной запуск сценария")
+Rel(script_controller, trigger_service, "Управление триггерами")
+
+Rel(script_service, script_repository, "Сохраняет/читает сценарий")
+Rel(script_service, trigger_service, "Регистрирует триггеры сценария")
+
+Rel(trigger_service, script_repository, "Сохраняет/читает триггеры")
+
+Rel(execution_service, script_repository, "Читает сценарий и историю")
+Rel(execution_service, command_publisher, "Передаёт команды для публикации")
+
+Rel(script_service, device_management, "Запрашивает датчики для привязки к сценарию", "HTTP/JSON")
+
+Rel(kafka, event_consumer, "События телеметрии и устройств", "Kafka")
+Rel(event_consumer, trigger_service, "Передаёт событие для проверки условий")
+Rel(trigger_service, execution_service, "Запускает сценарий при срабатывании")
+
+Rel(command_publisher, kafka, "Публикует команды устройствам", "Async")
+
+Rel(script_repository, script_db, "SQL-запросы", "SQL")
+
+@enduml

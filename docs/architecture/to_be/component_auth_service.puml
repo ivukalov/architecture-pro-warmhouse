@@ -1,0 +1,43 @@
+@startuml Component_Diagram_AuthService
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title Компонентная диаграмма сервиса авторизации
+
+Container(gateway, "API Gateway", "nginx", "Принимает HTTP-запросы, валидирует JWT и маршрутизирует в сервисы")
+ContainerQueue(kafka, "Брокер сообщений", "Kafka", "Асинхронная интеграционная шина")
+ContainerDb(auth_db, "БД авторизации", "Postgres", "Пользователи, пароли, токены")
+
+Container_Boundary(auth_service, "Сервис авторизации") {
+
+    Component(auth_controller, "Контроллер авторизации", "Go", "Принимает REST-запросы от API Gateway: логин, refresh, logout, регистрация")
+
+    Component(registration_service, "Сервис регистрации пользователей", "Go", "Регистрация новых пользователей, проверка уникальности логина/email")
+
+    Component(authentication_service, "Сервис аутентификации", "Go", "Проверка учётных данных, выдача access/refresh токенов")
+
+    Component(token_service, "Сервис токенов", "Go", "Генерация, валидация и отзыв JWT, управление refresh-токенами")
+
+    Component(password_service, "Сервис паролей", "Go", "Хеширование и проверка паролей (bcrypt/argon2)")
+
+    Component(user_repository, "Репозиторий пользователей", "Go", "Инкапсулирует доступ к БД: CRUD для пользователей, токенов, сессий")
+}
+
+Rel(gateway, auth_controller, "Запросы аутентификации", "HTTP/JSON")
+
+Rel(auth_controller, registration_service, "Регистрация пользователя")
+Rel(auth_controller, authentication_service, "Логин/логаут")
+Rel(auth_controller, token_service, "Refresh/валидация токена")
+
+Rel(registration_service, password_service, "Хеширует пароль")
+Rel(registration_service, user_repository, "Сохраняет пользователя")
+
+Rel(authentication_service, password_service, "Проверяет пароль")
+Rel(authentication_service, user_repository, "Читает пользователя")
+Rel(authentication_service, token_service, "Выдаёт токены")
+
+Rel(token_service, user_repository, "Сохраняет/читает refresh-токены")
+
+
+Rel(user_repository, auth_db, "SQL-запросы", "SQL")
+
+@enduml

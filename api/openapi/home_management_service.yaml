@@ -1,0 +1,182 @@
+openapi: 3.0.3
+info:
+  title: Home Management API
+  version: 1.0.0
+  description: Управление домами, комнатами и участниками
+servers:
+  - url: https://api.warmhome.local/homes/v1
+tags:
+  - name: Homes
+  - name: Rooms
+  - name: Members
+paths:
+  /homes:
+    get:
+      tags: [Homes]
+      summary: Список домов пользователя
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200':
+          description: Список домов
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Home' }
+    post:
+      tags: [Homes]
+      summary: Создать дом
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HomeCreate' }
+      responses:
+        '201':
+          description: Дом создан
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Home' }
+  /homes/{homeId}:
+    get:
+      tags: [Homes]
+      summary: Получить дом
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: homeId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Дом
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Home' }
+    put:
+      tags: [Homes]
+      summary: Обновить дом
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: homeId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HomeCreate' }
+      responses:
+        '200':
+          description: Дом обновлён
+    delete:
+      tags: [Homes]
+      summary: Удалить дом
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: homeId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '204':
+          description: Дом удалён
+  /homes/{homeId}/rooms:
+    get:
+      tags: [Rooms]
+      summary: Список комнат дома
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: homeId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Список комнат
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Room' }
+    post:
+      tags: [Rooms]
+      summary: Создать комнату
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: homeId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RoomCreate' }
+      responses:
+        '201':
+          description: Комната создана
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Room' }
+  /homes/{homeId}/members:
+    get:
+      tags: [Members]
+      summary: Список участников дома
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: homeId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Список участников
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/HomeMember' }
+    post:
+      tags: [Members]
+      summary: Добавить участника
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: homeId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/HomeMemberCreate' }
+      responses:
+        '201':
+          description: Участник добавлен
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  schemas:
+    Home:
+      type: object
+      properties:
+        home_id: { type: string, format: uuid }
+        name: { type: string }
+        address: { type: string }
+        timezone: { type: string }
+        owner_id: { type: string, format: uuid }
+    HomeCreate:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        address: { type: string }
+        timezone: { type: string }
+    Room:
+      type: object
+      properties:
+        room_id: { type: string, format: uuid }
+        home_id: { type: string, format: uuid }
+        name: { type: string }
+        floor: { type: integer }
+    RoomCreate:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        floor: { type: integer }
+    HomeMember:
+      type: object
+      properties:
+        member_id: { type: string, format: uuid }
+        home_id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid }
+        role: { type: string, enum: [owner, admin, member, guest] }
+    HomeMemberCreate:
+      type: object
+      required: [user_id, role]
+      properties:
+        user_id: { type: string, format: uuid }
+        role: { type: string, enum: [admin, member, guest] }

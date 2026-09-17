@@ -1,0 +1,150 @@
+openapi: 3.0.3
+info:
+  title: Device Management API
+  version: 1.0.0
+  description: Регистрация, привязка и управление устройствами
+servers:
+  - url: https://api.warmhome.local/devices/v1
+tags:
+  - name: Devices
+  - name: Bindings
+  - name: Commands
+paths:
+  /devices:
+    get:
+      tags: [Devices]
+      summary: Список устройств (с фильтрами)
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: home_id, in: query, schema: { type: string, format: uuid } }
+        - { name: room_id, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string, enum: [online, offline, error, unknown] } }
+      responses:
+        '200':
+          description: Список устройств
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Device' }
+    post:
+      tags: [Devices]
+      summary: Зарегистрировать устройство
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/DeviceCreate' }
+      responses:
+        '201':
+          description: Устройство зарегистрировано
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Device' }
+  /devices/{deviceId}:
+    get:
+      tags: [Devices]
+      summary: Получить устройство
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: deviceId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Устройство
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Device' }
+    delete:
+      tags: [Devices]
+      summary: Удалить устройство
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: deviceId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '204':
+          description: Устройство удалено
+  /devices/{deviceId}/bind:
+    post:
+      tags: [Bindings]
+      summary: Привязать устройство к комнате
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: deviceId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BindRequest' }
+      responses:
+        '200':
+          description: Устройство привязано
+  /devices/{deviceId}/unbind:
+    post:
+      tags: [Bindings]
+      summary: Отвязать устройство от комнаты
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: deviceId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '204':
+          description: Устройство отвязано
+  /devices/{deviceId}/commands:
+    post:
+      tags: [Commands]
+      summary: Отправить команду устройству
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: deviceId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CommandRequest' }
+      responses:
+        '202':
+          description: Команда принята (асинхронно)
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CommandAccepted' }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  schemas:
+    Device:
+      type: object
+      properties:
+        device_id: { type: string, format: uuid }
+        type_id: { type: string, format: uuid }
+        home_id: { type: string, format: uuid }
+        room_id: { type: string, format: uuid, nullable: true }
+        name: { type: string }
+        serial_number: { type: string }
+        status: { type: string, enum: [online, offline, error, unknown] }
+        state: { type: object, additionalProperties: true }
+        desired_state: { type: object, additionalProperties: true }
+        last_seen_at: { type: string, format: date-time }
+    DeviceCreate:
+      type: object
+      required: [type_id, home_id, name, serial_number]
+      properties:
+        type_id: { type: string, format: uuid }
+        home_id: { type: string, format: uuid }
+        name: { type: string }
+        serial_number: { type: string }
+    BindRequest:
+      type: object
+      required: [room_id]
+      properties:
+        room_id: { type: string, format: uuid }
+    CommandRequest:
+      type: object
+      required: [command]
+      properties:
+        command: { type: string, example: turn_on }
+        params: { type: object, additionalProperties: true }
+    CommandAccepted:
+      type: object
+      properties:
+        command_id: { type: string, format: uuid }
+        status: { type: string, example: accepted }

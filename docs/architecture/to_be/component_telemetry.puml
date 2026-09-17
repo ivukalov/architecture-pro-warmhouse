@@ -1,0 +1,33 @@
+@startuml Component_Diagram_Telemetry
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title Компонентная диаграмма сервиса телеметрии
+
+Container(gateway, "API Gateway", "nginx", "Принимает HTTP-запросы, валидирует JWT и маршрутизирует в сервисы")
+ContainerQueue(kafka, "Брокер сообщений", "Kafka", "Асинхронная интеграционная шина")
+ContainerDb(telemetry_db, "БД телеметрии", "Timeseries DB", "Хранит временные ряды показаний датчиков")
+
+Container_Boundary(telemetry, "Сервис телеметрии") {
+
+    Component(telemetry_controller, "Контроллер телеметрии", "Go", "Принимает REST запросы на чтение телеметрии от API Gateway")
+
+    Component(telemetry_consumer, "Консьюмер телеметрии", "Go", "Подписывается на события телеметрии в Kafka и передаёт их на обработку")
+
+    Component(telemetry_writer, "Сервис записи телеметрии", "Go", "Валидирует и нормализует данные, сохраняет их в БД")
+
+    Component(query_telemetry_service, "Сервис чтения телеметрии", "Go", "Логика выборки и агрегации данных телеметрии")
+
+    Component(telemetry_repository, "Репозиторий телеметрии", "Go", "Инкапсулирует доступ к Timeseries DB (запись и чтение)")
+}
+
+Rel(kafka, telemetry_consumer, "События телеметрии от адаптера протоколов", "Kafka")
+Rel(telemetry_consumer, telemetry_writer, "Передаёт сырые данные на обработку")
+Rel(telemetry_writer, telemetry_repository, "Сохраняет нормализованные данные")
+
+Rel(gateway, telemetry_controller, "Запросы на чтение телеметрии", "HTTP/JSON")
+Rel(telemetry_controller, query_telemetry_service, "Вызывает логику чтения")
+Rel(query_telemetry_service, telemetry_repository, "Запрашивает данные")
+
+Rel(telemetry_repository, telemetry_db, "SQL/Time-series запросы", "SQL")
+
+@enduml
