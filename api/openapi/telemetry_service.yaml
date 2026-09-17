@@ -1,0 +1,71 @@
+openapi: 3.0.3
+info:
+  title: Telemetry API
+  version: 1.0.0
+  description: Чтение телеметрии устройств
+servers:
+  - url: https://api.warmhome.local/telemetry/v1
+tags:
+  - name: Telemetry
+paths:
+  /telemetry:
+    get:
+      tags: [Telemetry]
+      summary: Получить телеметрию по устройству и метрике
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: device_id, in: query, required: true, schema: { type: string, format: uuid } }
+        - { name: metric, in: query, required: true, schema: { type: string } }
+        - { name: from, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: to, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: interval, in: query, schema: { type: string, example: 1m } }
+      responses:
+        '200':
+          description: Временной ряд
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/TelemetryPoint' }
+  /telemetry/aggregates:
+    get:
+      tags: [Telemetry]
+      summary: Получить агрегаты телеметрии
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: device_id, in: query, required: true, schema: { type: string, format: uuid } }
+        - { name: metric, in: query, required: true, schema: { type: string } }
+        - { name: period, in: query, required: true, schema: { type: string, enum: [minute, hour, day, month] } }
+        - { name: from, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: to, in: query, required: true, schema: { type: string, format: date-time } }
+      responses:
+        '200':
+          description: Агрегаты
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/TelemetryAggregate' }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  schemas:
+    TelemetryPoint:
+      type: object
+      properties:
+        device_id: { type: string, format: uuid }
+        metric: { type: string }
+        value: { type: number, format: double }
+        unit: { type: string }
+        timestamp: { type: string, format: date-time }
+    TelemetryAggregate:
+      type: object
+      properties:
+        device_id: { type: string, format: uuid }
+        metric: { type: string }
+        period: { type: string, enum: [minute, hour, day, month] }
+        period_start: { type: string, format: date-time }
+        avg_value: { type: number, format: double }
+        min_value: { type: number, format: double }
+        max_value: { type: number, format: double }
+        count: { type: integer, format: int64 }

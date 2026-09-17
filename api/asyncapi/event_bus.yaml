@@ -1,0 +1,154 @@
+asyncapi: '2.6.0'
+info:
+  title: Warm Home Event Bus
+  version: 1.0.0
+  description: Асинхронное взаимодействие сервисов «Тёплый дом» через Kafka
+servers:
+  production:
+    url: kafka.warmhome.local:9092
+    protocol: kafka
+    description: Production Kafka cluster
+channels:
+  device.commands:
+    description: Команды управления устройствами
+    publish:
+      summary: Публикация команды устройству
+      operationId: publishDeviceCommand
+      message:
+        $ref: '#/components/messages/DeviceCommand'
+    subscribe:
+      summary: Чтение команд адаптером протоколов
+      operationId: consumeDeviceCommand
+      message:
+        $ref: '#/components/messages/DeviceCommand'
+  telemetry.events:
+    description: События телеметрии от устройств
+    publish:
+      summary: Публикация телеметрии
+      operationId: publishTelemetry
+      message:
+        $ref: '#/components/messages/TelemetryEvent'
+    subscribe:
+      summary: Чтение телеметрии сервисом телеметрии и сценариями
+      operationId: consumeTelemetry
+      message:
+        $ref: '#/components/messages/TelemetryEvent'
+  device.events:
+    description: События изменения состояния устройств
+    publish:
+      summary: Публикация события устройства
+      operationId: publishDeviceEvent
+      message:
+        $ref: '#/components/messages/DeviceEvent'
+    subscribe:
+      summary: Чтение событий устройств
+      operationId: consumeDeviceEvent
+      message:
+        $ref: '#/components/messages/DeviceEvent'
+  home.events:
+    description: События домов и комнат
+    publish:
+      summary: Публикация события дома
+      operationId: publishHomeEvent
+      message:
+        $ref: '#/components/messages/HomeEvent'
+    subscribe:
+      summary: Чтение событий домов
+      operationId: consumeHomeEvent
+      message:
+        $ref: '#/components/messages/HomeEvent'
+  auth.events:
+    description: События авторизации
+    publish:
+      summary: Публикация события авторизации
+      operationId: publishAuthEvent
+      message:
+        $ref: '#/components/messages/AuthEvent'
+    subscribe:
+      summary: Чтение событий авторизации
+      operationId: consumeAuthEvent
+      message:
+        $ref: '#/components/messages/AuthEvent'
+components:
+  messages:
+    DeviceCommand:
+      name: DeviceCommand
+      title: Команда устройству
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/DeviceCommandPayload'
+    TelemetryEvent:
+      name: TelemetryEvent
+      title: Событие телеметрии
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/TelemetryEventPayload'
+    DeviceEvent:
+      name: DeviceEvent
+      title: Событие устройства
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/DeviceEventPayload'
+    HomeEvent:
+      name: HomeEvent
+      title: Событие дома
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/HomeEventPayload'
+    AuthEvent:
+      name: AuthEvent
+      title: Событие авторизации
+      contentType: application/json
+      payload:
+        $ref: '#/components/schemas/AuthEventPayload'
+  schemas:
+    DeviceCommandPayload:
+      type: object
+      required: [command_id, device_id, command, issued_at]
+      properties:
+        command_id: { type: string, format: uuid }
+        device_id: { type: string, format: uuid }
+        command: { type: string, example: turn_on }
+        params: { type: object, additionalProperties: true }
+        issued_by: { type: string, format: uuid, description: ID пользователя или сервиса }
+        issued_at: { type: string, format: date-time }
+    TelemetryEventPayload:
+      type: object
+      required: [device_id, metric, value, timestamp]
+      properties:
+        device_id: { type: string, format: uuid }
+        metric: { type: string }
+        value: { type: number }
+        unit: { type: string }
+        timestamp: { type: string, format: date-time }
+        tags: { type: object, additionalProperties: true }
+    DeviceEventPayload:
+      type: object
+      required: [device_id, event_type, occurred_at]
+      properties:
+        device_id: { type: string, format: uuid }
+        event_type:
+          type: string
+          enum: [online, offline, state_changed, error, registered, deleted]
+        state: { type: object, additionalProperties: true }
+        occurred_at: { type: string, format: date-time }
+    HomeEventPayload:
+      type: object
+      required: [home_id, event_type, occurred_at]
+      properties:
+        home_id: { type: string, format: uuid }
+        room_id: { type: string, format: uuid, nullable: true }
+        event_type:
+          type: string
+          enum: [home_created, home_updated, home_deleted, room_created, room_updated, room_deleted, member_added, member_removed]
+        payload: { type: object, additionalProperties: true }
+        occurred_at: { type: string, format: date-time }
+    AuthEventPayload:
+      type: object
+      required: [user_id, event_type, occurred_at]
+      properties:
+        user_id: { type: string, format: uuid }
+        event_type:
+          type: string
+          enum: [user_registered, user_logged_in, user_logged_out, token_revoked]
+        occurred_at: { type: string, format: date-time }

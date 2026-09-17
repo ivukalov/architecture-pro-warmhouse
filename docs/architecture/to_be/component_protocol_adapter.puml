@@ -1,0 +1,48 @@
+@startuml Component_Diagram_ProtocolAdapter
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title Компонентная диаграмма адаптера протоколов
+
+ContainerQueue(kafka, "Брокер сообщений", "Kafka", "Асинхронная интеграционная шина")
+System_Ext(integration_service, "Внешний сервис интеграции с датчиками", "Предоставляет HTTP-доступ к физическим устройствам")
+System_Ext(devices, "Физические устройства", "Датчики и исполнительные механизмы в доме")
+
+Container_Boundary(protocol_adapter, "Адаптер протоколов") {
+
+    Component(command_consumer, "Консьюмер команд", "Go", "Читает команды управления устройствами из топика")
+
+    Component(command_router, "Маршрутизатор команд", "Go", "Определяет устройство и маршрут доставки команды по метаданным")
+
+
+    Component(http_client, "HTTP-клиент", "Go", "Отправляет команды во внешний integration_service по HTTP")
+
+    Component(response_handler, "Обработчик ответов", "Go", "Обрабатывает ответы integration_service на команды (успех/ошибка)")
+
+    Component(event_receiver, "Приёмник событий", "Go", "Принимает показания и события от integration_service по HTTP")
+
+    Component(event_normalizer, "Нормализатор событий", "Go", "Приводит события устройств к единому формату платформы")
+
+    Component(event_publisher, "Публикатор событий", "Go", "Публикует нормализованные события в топики")
+
+    Component(retry_handler, "Обработчик retry", "Go", "Повторные попытки отправки команд")
+}
+
+Rel(kafka, command_consumer, "Команды управления устройствам", "Kafka")
+Rel(command_consumer, command_router, "Передаёт команду на маршрутизацию")
+Rel(command_router, http_client, "Передаёт команду для отправки")
+Rel(command_router, retry_handler, "Регистрирует команду для retry при ошибке")
+
+Rel(http_client, integration_service, "Отправляет команды", "HTTP/JSON")
+Rel(integration_service, response_handler, "Ответ на команду (успех/ошибка)", "HTTP/JSON")
+Rel(response_handler, retry_handler, "Передаёт неудачные команды")
+Rel(retry_handler, http_client, "Повторная отправка")
+
+Rel(integration_service, event_receiver, "Показания и события устройств", "HTTP/JSON")
+Rel(event_receiver, event_normalizer, "Передаёт сырые события")
+Rel(event_normalizer, event_publisher, "Нормализованные события")
+
+Rel(event_publisher, kafka, "Публикует telemetry.events и device.events", "Async")
+
+Rel(integration_service, devices, "Отправляет команды / принимает показания", "Zigbee / Z-Wave / Wi-Fi")
+
+@enduml

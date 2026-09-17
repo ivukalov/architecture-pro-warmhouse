@@ -1,0 +1,69 @@
+@startuml Container_diagram_WarmHome_ToBe
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title Контейнерная диаграмма «Тёплый дом» (To-Be)
+
+
+Person(user, "Пользователь", "Владелец умных устройств в «Тёплый дом»")
+
+
+System_Boundary(platform, "«Тёплый дом»") {
+
+    Container(web_browser, "Web-приложение", "JavaScript (SPA)", "Интерфейс управления домом, устройствами и сценариями")
+
+    Container(gateway, "API Gateway", "nginx", "Принимает HTTP-запросы, валидирует JWT через сервис авторизации и маршрутизирует в сервисы")
+
+    Container(auth_service, "Сервис авторизации", "Go", "Регистрирует пользователей, проверяет и генерирует токены авторизации")
+
+    Container(home_management, "Сервис управления домами/комнатами", "Go", "Управляет домами и комнатами")
+
+    Container(device_management, "Сервис управления датчиками", "Go", "Регистрация датчиков, привязка к комнатам, отправка команд")
+
+    Container(script_management, "Сервис управления сценариями", "Go", "Создание и выполнение пользовательских сценариев")
+
+    Container(telemetry, "Сервис телеметрии датчиков", "Go", "Приём и хранение телеметрии датчиков")
+
+    ContainerQueue(kafka, "Брокер сообщений", "Kafka", "Асинхронная интеграционная шина между сервисами и устройствами")
+
+    Container(protocol_adapter, "Адаптер протоколов", "Go", "Трансляция команд и событий между Kafka и физическими устройствами (MQTT/HTTP)")
+
+    ContainerDb(auth_db, "БД авторизации", "Postgres", "Пользователи, пароли, токены")
+    ContainerDb(home_db, "БД управления домами", "Postgres", "Дома, комнаты")
+    ContainerDb(device_db, "БД датчиков", "Postgres", "Метаданные датчиков и привязки к комнатам")
+    ContainerDb(script_db, "БД управления сценариями", "Postgres", "Сценарии пользователей")
+    ContainerDb(telemetry_db, "БД телеметрии", "Timeseries DB", "Временные ряды показаний датчиков")
+}
+
+
+System_Ext(integration_service,  "Шлюз производителя устройств", "Предоставляет HTTP-доступ к устройствам")
+System_Ext(devices, "Физические устройства", "Датчики и исполнительные механизмы в доме")
+
+Rel(user, web_browser, "Использует", "HTTPS")
+Rel(web_browser, gateway, "Отправляет HTTP-запросы", "HTTP/JSON")
+
+Rel(gateway, auth_service, "Логин, refresh токена", "HTTP/JSON")
+Rel(gateway, home_management, "Маршрутизирует запросы управления домами", "HTTP/JSON")
+Rel(gateway, device_management, "Маршрутизирует запросы управления датчиками", "HTTP/JSON")
+Rel(gateway, script_management, "Маршрутизирует запросы управления сценариями", "HTTP/JSON")
+Rel(gateway, telemetry, "Маршрутизирует запросы чтения телеметрии", "HTTP/JSON")
+
+Rel(device_management, home_management, "Запрашивает дома/комнаты для привязки датчиков", "HTTP/JSON")
+
+Rel(auth_service, auth_db, "Пишет/читает", "SQL")
+Rel(home_management, home_db, "Пишет/читает", "SQL")
+Rel(device_management, device_db, "Пишет/читает", "SQL")
+Rel(script_management, script_db, "Пишет/читает", "SQL")
+Rel(telemetry, telemetry_db, "Пишет/читает", "SQL")
+
+Rel(device_management, kafka, "Публикует команды устройствам", "Async")
+Rel(script_management, kafka, "Публикует команды", "Async")
+Rel(kafka, script_management, "Слушает события", "Async")
+Rel(telemetry, kafka, "Слушает события телеметрии", "Async")
+Rel(telemetry, kafka, "Публикует события превышения порогов", "Async")
+Rel(protocol_adapter, kafka, "Читает команды, публикует события устройств", "Async")
+
+Rel(protocol_adapter, integration_service, "Отправляет команды / принимает показания", "HTTP")
+
+Rel(integration_service, devices, "Отправляет команды / принимает показания по внутреннему протоколу", "Zigbee / Wi-Fi")
+
+@enduml

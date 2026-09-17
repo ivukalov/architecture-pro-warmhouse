@@ -1,0 +1,202 @@
+@startuml ER_Diagram_WarmHome
+
+title ER-диаграмма системы «Тёплый дом»
+
+entity "User\n(Пользователь)" as user {
+    * user_id : UUID <<PK>>
+    --
+    * email : VARCHAR(255) <<UNIQUE>>
+    * password_hash : VARCHAR(255)
+    * full_name : VARCHAR(255)
+    * phone : VARCHAR(20)
+    * status : ENUM(active, blocked, deleted)
+    * created_at : TIMESTAMP
+    * updated_at : TIMESTAMP
+}
+
+entity "Role\n(Роль)" as role {
+    * role_id : UUID <<PK>>
+    --
+    * name : VARCHAR(50) <<UNIQUE>>
+    * description : TEXT
+}
+
+entity "UserRole\n(Роль пользователя)" as user_role {
+    * user_role_id : UUID <<PK>>
+    --
+    # user_id : UUID <<FK>>
+    # role_id : UUID <<FK>>
+    * assigned_at : TIMESTAMP
+}
+
+entity "RefreshToken\n(Refresh-токен)" as refresh_token {
+    * token_id : UUID <<PK>>
+    --
+    # user_id : UUID <<FK>>
+    * token_hash : VARCHAR(255) <<UNIQUE>>
+    * device_info : VARCHAR(255)
+    * ip_address : INET
+    * expires_at : TIMESTAMP
+    * revoked_at : TIMESTAMP
+    * created_at : TIMESTAMP
+}
+
+entity "Home\n(Дом)" as home {
+    * home_id : UUID <<PK>>
+    --
+    * name : VARCHAR(255)
+    * address : TEXT
+    * timezone : VARCHAR(50)
+    * owner_id : UUID <<FK>>
+    * created_at : TIMESTAMP
+    * updated_at : TIMESTAMP
+}
+
+entity "Room\n(Комната)" as room {
+    * room_id : UUID <<PK>>
+    --
+    # home_id : UUID <<FK>>
+    * name : VARCHAR(255)
+    * floor : INT
+    * area : DECIMAL(10,2)
+    * created_at : TIMESTAMP
+    * updated_at : TIMESTAMP
+}
+
+entity "HomeMember\n(Участник дома)" as home_member {
+    * member_id : UUID <<PK>>
+    --
+    # home_id : UUID <<FK>>
+    # user_id : UUID <<FK>>
+    * role : ENUM(owner, admin, member, guest)
+    * joined_at : TIMESTAMP
+}
+
+entity "DeviceType\n(Тип устройства)" as device_type {
+    * type_id : UUID <<PK>>
+    --
+    * name : VARCHAR(100) <<UNIQUE>>
+    * category : ENUM(sensor, rele)
+    * protocol : ENUM(http, zigbee, mqtt)
+    * manufacturer : VARCHAR(255)
+    * model : VARCHAR(255)
+    * capabilities : JSONB
+    * created_at : TIMESTAMP
+}
+
+entity "Device\n(Устройство)" as device {
+    * device_id : UUID <<PK>>
+    --
+    # type_id : UUID <<FK>>
+    # home_id : UUID <<FK>>
+    # room_id : UUID <<FK>>
+    * name : VARCHAR(255)
+    * serial_number : VARCHAR(100) <<UNIQUE>>
+    * status : ENUM(online, offline, error, unknown)
+    * state : JSONB
+    * desired_state : JSONB
+    * last_seen_at : TIMESTAMP
+    * registered_at : TIMESTAMP
+    * updated_at : TIMESTAMP
+}
+
+entity "DeviceBinding\n(Привязка устройства)" as device_binding {
+    * binding_id : UUID <<PK>>
+    --
+    # device_id : UUID <<FK>>
+    # room_id : UUID <<FK>>
+    * bound_at : TIMESTAMP
+    * bound_by : UUID <<FK>>
+}
+
+entity "Script\n(Сценарий)" as script {
+    * script_id : UUID <<PK>>
+    --
+    # home_id : UUID <<FK>>
+    # owner_id : UUID <<FK>>
+    * name : VARCHAR(255)
+    * description : TEXT
+    * enabled : BOOLEAN
+    * created_at : TIMESTAMP
+    * updated_at : TIMESTAMP
+}
+
+entity "Trigger\n(Триггер)" as trigger {
+    * trigger_id : UUID <<PK>>
+    --
+    # script_id : UUID <<FK>>
+    * type : ENUM(schedule, event, manual)
+    * config : JSONB
+    * enabled : BOOLEAN
+}
+
+entity "Action\n(Действие)" as action {
+    * action_id : UUID <<PK>>
+    --
+    # script_id : UUID <<FK>>
+    # device_id : UUID <<FK>>
+    * type : ENUM(command, notification, delay)
+    * config : JSONB
+    * order_index : INT
+}
+
+entity "ExecutionLog\n(История выполнения)" as execution_log {
+    * execution_id : UUID <<PK>>
+    --
+    # script_id : UUID <<FK>>
+    * started_at : TIMESTAMP
+    * finished_at : TIMESTAMP
+    * status : ENUM(success, failed, partial)
+    * error_message : TEXT
+}
+
+entity "TelemetryRecord\n(Запись телеметрии)" as telemetry {
+    * record_id : BIGSERIAL <<PK>>
+    --
+    # device_id : UUID <<FK>>
+    * metric : VARCHAR(100)
+    * value : DOUBLE PRECISION
+    * unit : VARCHAR(20)
+    * timestamp : TIMESTAMPTZ
+    * tags : JSONB
+}
+
+entity "TelemetryAggregate\n(Агрегат телеметрии)" as telemetry_agg {
+    * aggregate_id : BIGSERIAL <<PK>>
+    --
+    # device_id : UUID <<FK>>
+    * metric : VARCHAR(100)
+    * period : ENUM(minute, hour, day, month)
+    * period_start : TIMESTAMPTZ
+    * avg_value : DOUBLE PRECISION
+    * min_value : DOUBLE PRECISION
+    * max_value : DOUBLE PRECISION
+    * count : BIGINT
+}
+
+user ||--o{ user_role : "имеет"
+role ||--o{ user_role : "назначается"
+user ||--o{ refresh_token : "владеет"
+
+user ||--o{ home : "владеет"
+home ||--o{ room : "содержит"
+home ||--o{ home_member : "имеет участников"
+user ||--o{ home_member : "участвует в"
+
+device_type ||--o{ device : "классифицирует"
+home ||--o{ device : "содержит"
+room ||--o{ device : "размещает"
+device ||--o| device_binding : "имеет привязку"
+room ||--o{ device_binding : "привязано к"
+
+home ||--o{ script : "содержит"
+user ||--o{ script : "владеет"
+script ||--o{ trigger : "имеет триггеры"
+script ||--o{ action : "имеет действия"
+device ||--o{ action : "выполняет на"
+script ||--o{ execution_log : "логирует"
+
+device ||--o{ telemetry : "публикует"
+device ||--o{ telemetry_agg : "агрегируется по"
+
+@enduml

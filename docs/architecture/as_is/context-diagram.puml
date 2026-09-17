@@ -1,0 +1,25 @@
+@startuml Context_diagram
+
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+
+title Контекстная диаграмма (As-Is)
+
+Person(user, "Пользователь")
+
+System(browser, "Web Browser", "Веб-интерфейс взаимодействия с системой")
+
+Rel(user, browser, "Использует для управления датчиками")
+
+System(monolith, "Monolith", "Монолитное приложение на Go(управляет датчиками и мониторит температуру)")
+
+Rel(browser, monolith, "HTTP-запросы")
+
+System_Ext(temperature_api, "API температуры", "Внешний сервис(предоставляет данные с датчиков)")
+
+Rel(monolith, temperature_api, "Запрашивает показания температуры")
+
+SystemDb(db, "DB", "База данных(хранит информацию о датчиках)")
+Rel(monolith, db, "Читает и записывает информацию о датчиках")
+
+@enduml

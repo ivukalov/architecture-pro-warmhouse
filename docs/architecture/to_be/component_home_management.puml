@@ -1,0 +1,42 @@
+@startuml Component_Diagram_HomeManagement
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title Компонентная диаграмма сервиса управления домами/комнатами
+
+Container(gateway, "API Gateway", "nginx", "Принимает HTTP-запросы, валидирует JWT и маршрутизирует в сервисы")
+ContainerQueue(kafka, "Брокер сообщений", "Kafka", "Асинхронная интеграционная шина")
+Container(device_management, "Сервис управления датчиками", "Go", "Регистрация датчиков, привязка к комнатам, отправка команд")
+ContainerDb(home_db, "БД управления домами", "Postgres", "Дома, комнаты")
+
+Container_Boundary(home_management, "Сервис управления домами/комнатами") {
+
+    Component(home_controller, "Контроллер домов", "Go", "Принимает REST-запросы от API Gateway: CRUD домов и комнат")
+
+    Component(home_service, "Сервис домов", "Go", "Создание, обновление, удаление домов. Управление владельцами и участниками")
+
+    Component(room_service, "Сервис комнат", "Go", "Создание, обновление, удаление комнат внутри дома")
+
+    Component(permission_service, "Сервис прав доступа", "Go", "Проверка прав пользователя на дом/комнату (владелец, участник, гость)")
+
+
+    Component(home_repository, "Репозиторий домов", "Go", "Инкапсулирует доступ к БД: CRUD для домов, комнат, участников и прав")
+}
+
+Rel(gateway, home_controller, "Запросы управления домами/комнатами", "HTTP/JSON")
+
+Rel(home_controller, home_service, "CRUD домов")
+Rel(home_controller, room_service, "CRUD комнат")
+Rel(home_controller, permission_service, "Проверка прав")
+
+Rel(home_service, home_repository, "Сохраняет/читает дом")
+
+Rel(room_service, home_repository, "Сохраняет/читает комнату")
+
+Rel(permission_service, home_repository, "Читает права и участников")
+
+Rel(device_management, home_controller, "Запрашивает дома/комнаты для привязки датчиков", "HTTP/JSON")
+Rel(home_controller, permission_service, "Проверяет права для межсервисного запроса")
+
+Rel(home_repository, home_db, "SQL-запросы", "SQL")
+
+@enduml

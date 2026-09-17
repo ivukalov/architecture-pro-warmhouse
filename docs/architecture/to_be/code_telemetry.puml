@@ -1,0 +1,136 @@
+@startuml Class_Diagram_TelemetryWriter
+skinparam classAttributeIconSize 0
+skinparam monochrome true
+skinparam shadowing false
+
+title Диаграмма классов: сервис записи телеметрии
+
+' ─── Интерфейсы ───
+interface Writer {
+    + Write(ctx context.Context, records []TelemetryRecord) error
+    + Close() error
+}
+
+interface MetadataCache {
+    + GetDevice(deviceID string) (DeviceMeta, bool)
+    + GetRoom(roomID string) (RoomMeta, bool)
+}
+
+' ─── Модели ───
+class TelemetryRecord {
+    + DeviceID string
+    + Timestamp time.Time
+    + Metric string
+    + Value float64
+    + Unit string
+    + Raw map[string]interface{}
+}
+
+class DeviceMeta {
+    + DeviceID string
+    + HomeID string
+    + RoomID string
+    + Type string
+}
+
+' ─── Реализации Writer ───
+class InfluxWriter {
+    - client *influxdb.Client
+    - org string
+    - bucket string
+    + Write(ctx, records) error
+    + Close() error
+}
+
+class TimescaleWriter {
+    - db *sql.DB
+    - batchSize int
+    + Write(ctx, records) error
+    + Close() error
+}
+
+' ─── Обработка ───
+class WriterHandler {
+    - validator *Validator
+    - normalizer *Normalizer
+    - enricher *Enricher
+    - buffer *BatchBuffer
+    - writer Writer
+    - metrics *Metrics
+    - logger *Logger
+    + Handle(ctx, raw RawTelemetry) error
+    + Flush(ctx) error
+    + Close() error
+}
+
+class Validator {
+    + Validate(raw RawTelemetry) error
+}
+
+class Normalizer {
+    + Normalize(raw RawTelemetry) TelemetryRecord
+}
+
+class Enricher {
+    - cache MetadataCache
+    + Enrich(record *TelemetryRecord) error
+}
+
+class BatchBuffer {
+    - buffer []TelemetryRecord
+    - maxSize int
+    - flushInterval time.Duration
+    - mu sync.Mutex
+    + Add(record TelemetryRecord) error
+    + Flush(ctx) ([]TelemetryRecord, error)
+}
+
+' ─── Инфраструктура ───
+class Metrics {
+    + IncRecordsReceived()
+    + IncRecordsWritten()
+    + IncErrors(reason string)
+    + ObserveLatency(d time.Duration)
+}
+
+class Logger {
+    + Info(msg string, fields ...Field)
+    + Error(msg string, err error, fields ...Field)
+}
+
+class WriterFactory {
+    + {static} Create(cfg Config) (Writer, error)
+}
+
+' ─── Связи ───
+WriterHandler --> Validator : использует
+WriterHandler --> Normalizer : использует
+WriterHandler --> Enricher : использует
+WriterHandler --> BatchBuffer : использует
+WriterHandler --> Writer : зависит от интерфейса
+WriterHandler --> Metrics : использует
+WriterHandler --> Logger : использует
+
+Enricher --> MetadataCache : зависит от интерфейса
+
+InfluxWriter ..|> Writer : реализует
+TimescaleWriter ..|> Writer : реализует
+
+WriterFactory ..> InfluxWriter : создаёт
+WriterFactory ..> TimescaleWriter : создаёт
+
+BatchBuffer --> TelemetryRecord : содержит
+Validator ..> RawTelemetry : валидирует
+Normalizer ..> RawTelemetry : преобразует
+Normalizer ..> TelemetryRecord : создаёт
+Enricher ..> TelemetryRecord : обогащает
+Enricher ..> DeviceMeta : читает
+
+' ─── Вспомогательный класс ───
+class RawTelemetry {
+    + DeviceID string
+    + Timestamp int64
+    + Payload map[string]interface{}
+}
+
+@enduml

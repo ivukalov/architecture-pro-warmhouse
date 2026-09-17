@@ -1,0 +1,151 @@
+openapi: 3.0.3
+info:
+  title: Script Management API
+  version: 1.0.0
+  description: Создание, управление и запуск сценариев
+servers:
+  - url: https://api.warmhome.local/scripts/v1
+tags:
+  - name: Scripts
+  - name: Triggers
+  - name: Actions
+  - name: Executions
+paths:
+  /scripts:
+    get:
+      tags: [Scripts]
+      summary: Список сценариев
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: home_id, in: query, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Список сценариев
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Script' }
+    post:
+      tags: [Scripts]
+      summary: Создать сценарий
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ScriptCreate' }
+      responses:
+        '201':
+          description: Сценарий создан
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Script' }
+  /scripts/{scriptId}:
+    get:
+      tags: [Scripts]
+      summary: Получить сценарий
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: scriptId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Сценарий
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Script' }
+    put:
+      tags: [Scripts]
+      summary: Обновить сценарий
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: scriptId, in: path, required: true, schema: { type: string, format: uuid } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ScriptCreate' }
+      responses:
+        '200':
+          description: Сценарий обновлён
+    delete:
+      tags: [Scripts]
+      summary: Удалить сценарий
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: scriptId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '204':
+          description: Сценарий удалён
+  /scripts/{scriptId}/run:
+    post:
+      tags: [Executions]
+      summary: Запустить сценарий вручную
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: scriptId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '202':
+          description: Сценарий запущен
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Execution' }
+  /scripts/{scriptId}/executions:
+    get:
+      tags: [Executions]
+      summary: История выполнения сценария
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: scriptId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Список выполнений
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Execution' }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  schemas:
+    Script:
+      type: object
+      properties:
+        script_id: { type: string, format: uuid }
+        home_id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string }
+        enabled: { type: boolean }
+        triggers: { type: array, items: { $ref: '#/components/schemas/Trigger' } }
+        actions: { type: array, items: { $ref: '#/components/schemas/Action' } }
+    ScriptCreate:
+      type: object
+      required: [home_id, name, triggers, actions]
+      properties:
+        home_id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string }
+        triggers: { type: array, items: { $ref: '#/components/schemas/Trigger' } }
+        actions: { type: array, items: { $ref: '#/components/schemas/Action' } }
+    Trigger:
+      type: object
+      properties:
+        type: { type: string, enum: [schedule, event, manual] }
+        config: { type: object, additionalProperties: true }
+    Action:
+      type: object
+      properties:
+        type: { type: string, enum: [command, notification, delay] }
+        device_id: { type: string, format: uuid, nullable: true }
+        config: { type: object, additionalProperties: true }
+        order_index: { type: integer }
+    Execution:
+      type: object
+      properties:
+        execution_id: { type: string, format: uuid }
+        script_id: { type: string, format: uuid }
+        started_at: { type: string, format: date-time }
+        finished_at: { type: string, format: date-time }
+        status: { type: string, enum: [success, failed, partial] }
+        error_message: { type: string }

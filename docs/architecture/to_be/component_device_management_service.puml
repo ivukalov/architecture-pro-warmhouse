@@ -1,0 +1,47 @@
+@startuml Component_Diagram_DeviceManagement
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+title Компонентная диаграмма сервиса управления датчиками
+
+Container(gateway, "API Gateway", "nginx", "Принимает HTTP-запросы, валидирует JWT и маршрутизирует в сервисы")
+ContainerQueue(kafka, "Брокер сообщений", "Kafka", "Асинхронная интеграционная шина")
+Container(home_management, "Сервис управления домами/комнатами", "Go", "Управляет домами и комнатами")
+ContainerDb(device_db, "БД датчиков", "Postgres", "Метаданные датчиков и привязки к комнатам")
+
+Container_Boundary(device_management, "Сервис управления датчиками") {
+
+    Component(device_controller, "Контроллер устройств", "Go", "Принимает REST-запросы от API Gateway. Валидирует входные данные и маршрутизирует в сервисы")
+
+    Component(registration_service, "Сервис регистрации устройств", "Go", "Регистрация, обновление и удаление датчиков")
+
+    Component(attachment_service, "Сервис привязки устройств", "Go", "Привязка и отвязка датчиков к комнатам дома")
+
+    Component(state_service, "Сервис состояния устройств", "Go", "Управление состоянием устройства: включить/выключить, установить параметры")
+
+    Component(command_publisher, "Публикатор команд", "Go", "Публикует команды управления устройствам в Kafka")
+
+    Component(event_consumer, "Консьюмер событий устройств", "Go", "Слушает события изменения состояния устройств из Kafka")
+
+    Component(device_repository, "Репозиторий устройств", "Go", "Инкапсулирует доступ к БД: CRUD для датчиков, типов и привязок")
+}
+
+Rel(gateway, device_controller, "Запросы управления датчиками", "HTTP/JSON")
+
+Rel(device_controller, registration_service, "Регистрация/обновление/удаление датчика")
+Rel(device_controller, attachment_service, "Привязка/отвязка датчика к комнате")
+Rel(device_controller, state_service, "Команда управления устройством")
+
+Rel(registration_service, device_repository, "Сохраняет/читает датчик")
+Rel(attachment_service, device_repository, "Сохраняет/читает привязку")
+Rel(state_service, device_repository, "Обновляет состояние")
+
+Rel(attachment_service, home_management, "Запрашивает дома/комнаты для привязки", "HTTP/JSON")
+
+Rel(state_service, command_publisher, "Передаёт команду для публикации")
+Rel(command_publisher, kafka, "Публикует команды устройствам", "Async")
+Rel(kafka, event_consumer, "События изменения состояния устройств", "Kafka")
+Rel(event_consumer, state_service, "Передаёт событие для обновления состояния")
+
+Rel(device_repository, device_db, "SQL-запросы", "SQL")
+
+@enduml
